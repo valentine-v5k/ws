@@ -4,6 +4,7 @@ import java.util.Date
 
 import org.json4s.JsonDSL._
 import org.json4s._
+import org.json4s.jackson.Serialization.write
 import org.scalatra._
 import org.scalatra.atmosphere._
 import org.scalatra.json.{JValueResult, JacksonJsonSupport}
@@ -11,10 +12,8 @@ import org.scalatra.scalate.ScalateSupport
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class ChatController extends ScalatraServlet
-with ScalateSupport with JValueResult
-with JacksonJsonSupport with SessionSupport
-with AtmosphereSupport {
+class ChatController extends ScalatraServlet with ScalateSupport with JValueResult
+with JacksonJsonSupport with SessionSupport with AtmosphereSupport {
 
   private final val topic = new Topic
 
@@ -30,26 +29,28 @@ with AtmosphereSupport {
     topic.alert(json)
   }
 
+  case class Action(author: String, message: String, time: String)
+
   atmosphere("/the-chat") {
     val client = new AtmosphereClient {
       def receive: AtmoReceive = {
         case Connected =>
           println("Client %s is connected" format uuid)
-          broadcast(("author" -> "Someone") ~ ("message" -> "joined the room") ~ ("time" -> time), Everyone)
+          broadcast(write(Action("Someone", "joined the room", time)), Everyone)
 
         case Disconnected(ClientDisconnected, _) =>
-          broadcast(("author" -> "Someone") ~ ("message" -> "has left the room") ~ ("time" -> time), Everyone)
+          broadcast(write(Action("Someone", "has left the room", time)), Everyone)
 
         case Disconnected(ServerDisconnected, _) =>
           println("Server disconnected the client %s" format uuid)
 
         case _: TextMessage =>
-          send(("author" -> "system") ~ ("message" -> "Only json is allowed") ~ ("time" -> time))
+          send(write(Action("system", "Only json is allowed", time)))
 
         case JsonMessage(json) =>
           println("Got message %s from %s".format((json \ "message").extract[String], (json \ "author").extract[String]))
           val msg = json merge ("time" -> time.toString: JValue)
-          broadcast(msg) // by default a broadcast is to everyone but self
+          broadcast(msg, SkipSelf) // by default a broadcast is to everyone but self
         //  send(msg) // also send to the sender
       }
     }
