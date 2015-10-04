@@ -7,5 +7,7 @@ import scala.concurrent.ExecutionContext
 
 class AtmosphereSubscriber(client: AtmosphereClient)(implicit executionContext: ExecutionContext) extends Subscriber {
 
-  override def broadcast(jsonValue: JValue): Unit = client.broadcast(new JsonMessage(jsonValue))
+  override def broadcast(jsonValue: JValue): Unit = client ! new JsonMessage(jsonValue)
+
+  override def toString: String = client.uuid
 }
